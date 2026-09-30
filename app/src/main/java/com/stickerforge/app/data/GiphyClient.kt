@@ -31,7 +31,6 @@ private val giphyJson = Json { ignoreUnknownKeys = true }
  * Search and trending share the same request shape; trending simply omits
  * the query. Results without a preview URL are dropped. The key never leaves
  * this class except as the `api_key` query parameter and is never logged.
- *
  */
 class GiphyClient(
     private val http: OkHttpClient,
@@ -67,7 +66,6 @@ class GiphyClient(
             .addQueryParameter("offset", offset.toString())
             .addQueryParameter("rating", "r")
             .addQueryParameter("lang", "en")
-            .addQueryParameter("bundle", "messaging_non_clips")
             .build()
 
         val response = perform(Request.Builder().url(url).get().build())
@@ -139,9 +137,18 @@ private data class GiphyItem(
     fun toResult(): GifResult? {
         val images = images ?: return null
         val original = images.original ?: return null
-        val preview = images.fixedWidthSmallStill?.url?.trim().orEmpty()
+        // Giphy drops every *_still variant when bundle=messaging_non_clips is
+        // sent, so stills are preferred but an animated URL is a fine fallback
+        // (Coil renders its first frame).
+        val preview = listOfNotNull(
+            images.fixedWidthSmallStill,
+            images.fixedWidthStill,
+            images.originalStill,
+            images.fixedWidthSmall,
+            original,
+        ).firstNotNullOfOrNull { it.url.trim().takeIf(String::isNotEmpty) } ?: return null
         val gif = original.url.trim()
-        if (preview.isEmpty() || gif.isEmpty()) return null
+        if (gif.isEmpty()) return null
         return GifResult(
             id = id,
             title = title,
@@ -159,6 +166,9 @@ private data class GiphyItem(
 private data class GiphyImages(
     val original: GiphyImage? = null,
     @SerialName("fixed_width_small_still") val fixedWidthSmallStill: GiphyImage? = null,
+    @SerialName("fixed_width_still") val fixedWidthStill: GiphyImage? = null,
+    @SerialName("original_still") val originalStill: GiphyImage? = null,
+    @SerialName("fixed_width_small") val fixedWidthSmall: GiphyImage? = null,
 )
 
 @Serializable

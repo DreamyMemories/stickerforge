@@ -13,7 +13,7 @@ app/src/main/java/com/stickerforge/app/
   data/GifModels.kt          GifResult / GifPage / ApiResult
   data/GifSearchService.kt   dispatcher over the two providers
   data/GiphyClient.kt        Giphy REST client          [issue #4]
-  data/TenorClient.kt        Tenor REST client           [issue #4]
+  data/KlipyClient.kt        KLIPY client (Tenor successor) [issue #4]
   data/PackRepository.kt     pack storage on disk
   core/EditMask.kt           per-pixel alpha mask         [issue #2]
   core/MagicWand.kt          flood fill selection         [issue #2]
@@ -119,7 +119,11 @@ VP8X / ANMF / ALPH / VP8 / VP8L and reject non-WebP input.
 
 ---
 
-## Search (issue #4) - `data/GiphyClient.kt`, `data/TenorClient.kt`
+## Search (issue #4) - `data/GiphyClient.kt`, `data/KlipyClient.kt`
+
+> Tenor was the second provider until Google shut its API down on 30 June 2026.
+> KLIPY is the drop-in replacement (same v2 dialect, host `api.klipy.com`),
+> already used by Discord and Bluesky, so `TenorClient` became `KlipyClient`.
 
 ```kotlin
 class GiphyClient(private val http: OkHttpClient, private val keyProvider: suspend () -> String) {
@@ -127,22 +131,27 @@ class GiphyClient(private val http: OkHttpClient, private val keyProvider: suspe
     suspend fun trending(limit: Int, offset: Int): ApiResult<GifPage>
 }
 
-class TenorClient(private val http: OkHttpClient, private val keyProvider: suspend () -> String) {
-    suspend fun search(query: String, limit: Int, pos: String?): ApiResult<GifPage>
-    suspend fun featured(limit: Int, pos: String?): ApiResult<GifPage>
+class KlipyClient(private val http: OkHttpClient, private val keyProvider: suspend () -> String) {
+    suspend fun search(query: String, limit: Int, pos: String?, stickerOnly: Boolean = false): ApiResult<GifPage>
+    suspend fun featured(limit: Int, pos: String?, stickerOnly: Boolean = false): ApiResult<GifPage>
 }
 ```
 
-- Giphy: `https://api.giphy.com/v1/gifs/search|trending`, `rating=r`,
-  `bundle=messaging_non_clips`, preview = `images.fixed_width_small_still.url`,
-  media = `images.original.url` and `images.original.mp4` when present.
-  `next` cursor = offset + returned count.
-- Tenor: `https://tenor.googleapis.com/v2/search|featured`,
-  `contentfilter=off`, `media_filter=gifpreview,tinygif,gif,mp4,tinymp4`.
-  If the response is a 400 that mentions the content filter, retry once with
-  `contentfilter=medium`. `next` = `next` from the response payload.
-- Never log or hardcode keys. Return `ApiResult.MissingKey` when the key is blank.
-- Skip results without a usable `previewUrl`.
+- Giphy: `https://api.giphy.com/v1/gifs/search|trending`, `rating=r`.
+  Deliberately **no** `bundle=messaging_non_clips`: that filter strips every
+  `*_still` URL and would empty the grid. Preview falls back
+  `fixed_width_small_still` -> `fixed_width_still` -> `original_still` ->
+  `fixed_width_small` -> `original`. `next` cursor = offset + returned count.
+- KLIPY: `https://api.klipy.com/v2/search|featured` with `contentfilter=off`
+  (KLIPY's default) and `searchfilter=sticker` for transparent sticker
+  results. If a 400 names the content filter, retry once at `medium`.
+  `media_formats` is parsed as an open dictionary so unknown/renamed formats
+  do not break anything; preview and playback URLs are picked from a fallback
+  chain (`gifpreview`/`tinygif`/`webp` ... and `mp4`/`tinymp4`/`gif`/`webp`).
+- Neither client logs keys; blank key -> `ApiResult.MissingKey` with no request.
+- Keys come from `ApiKeys`, which falls back to `BuildConfig.GIPHY_API_KEY` /
+  `BuildConfig.KLIPY_API_KEY` for personal builds (values injected from the
+  gitignored `local.properties`, never committed).
 
 ---
 
@@ -208,4 +217,5 @@ gradlew :app:assembleDebug         # APK
 ```
 
 API keys are entered in the app's Settings screen and stored with DataStore.
-No keys live in the repository.
+No keys live in the repository. Personal builds may pre-seed them through the
+gitignored `local.properties` (`GIPHY_API_KEY`, `KLIPY_API_KEY`).

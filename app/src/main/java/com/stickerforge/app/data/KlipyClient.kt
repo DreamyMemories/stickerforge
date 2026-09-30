@@ -12,34 +12,33 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
-private const val DEFAULT_BASE_URL = "https://tenor.googleapis.com/v2"
-private const val MEDIA_FILTER = "gifpreview,tinygif,gif,mp4,tinymp4"
+private const val DEFAULT_BASE_URL = "https://api.klipy.com/v2"
+private const val CLIENT_KEY = "stickerforge"
 private const val ERROR_BODY_LIMIT = 500
 
-private val tenorJson = Json { ignoreUnknownKeys = true }
+private val klipyJson = Json { ignoreUnknownKeys = true }
 
 /**
- * Tenor REST client. See `docs/ARCHITECTURE.md` section "Search".
+ * KLIPY client. KLIPY replaced Tenor (Google shut the Tenor API down on
+ * 30 June 2026) and exposes Tenor-compatible v2 endpoints, so this is
+ * essentially "Tenor with a different host" - see `docs/ARCHITECTURE.md`.
  *
- * Search and featured share the same request shape; featured omits the query.
- * Like the Giphy client, results are dropped when no preview URL is usable.
+ * Unfiltered by default: KLIPY's `contentfilter` defaults to `off`, which is
+ * what we ask for. If a key is not allowed to request that, the call is
+ * retried once at `medium`.
  *
- * Tenor sometimes rejects `contentfilter=off`; when the server answers 400
- * and names the content filter in the body the request is retried exactly
- * once with `contentfilter=medium`. Any other failure is mapped as-is.
- *
- * The key never leaves this class except as the `key` query parameter and is
- * never logged.
- *
+ * `searchfilter=sticker` returns transparent stickers (webp/png instead of
+ * gif/mp4), which is ideal for a sticker maker - those are offered in the UI
+ * as the "Stickers only" mode.
  */
-class TenorClient(
+class KlipyClient(
     private val http: OkHttpClient,
     private val keyProvider: suspend () -> String,
 ) {
     /** Production endpoint; the secondary constructor overrides it in tests. */
     private var baseUrl: String = DEFAULT_BASE_URL
 
-    /** Test seam: point the client at a mock server instead of Tenor. */
+    /** Test seam: point the client at a mock server instead of KLIPY. */
     constructor(
         http: OkHttpClient,
         keyProvider: suspend () -> String,
@@ -48,16 +47,29 @@ class TenorClient(
         this.baseUrl = baseUrl
     }
 
-    suspend fun search(query: String, limit: Int, pos: String?): ApiResult<GifPage> =
-        load(query = query, limit = limit, pos = pos, path = "search")
+    suspend fun search(
+        query: String,
+        limit: Int,
+        pos: String?,
+        stickerOnly: Boolean = false,
+    ): ApiResult<GifPage> = load(query, limit, pos, "search", stickerOnly)
 
-    suspend fun featured(limit: Int, pos: String?): ApiResult<GifPage> =
-        load(query = null, limit = limit, pos = pos, path = "featured")
+    suspend fun featured(
+        limit: Int,
+        pos: String?,
+        stickerOnly: Boolean = false,
+    ): ApiResult<GifPage> = load(null, limit, pos, "featured", stickerOnly)
 
-    private suspend fun load(query: String?, limit: Int, pos: String?, path: String): ApiResult<GifPage> {
+    private suspend fun load(
+        query: String?,
+        limit: Int,
+        pos: String?,
+        path: String,
+        stickerOnly: Boolean,
+    ): ApiResult<GifPage> {
         val key = keyProvider().trim()
         if (key.isEmpty()) return ApiResult.MissingKey
-        return requestPage(key, query, limit, pos, path, contentFilter = "off", allowRetry = true)
+        return requestPage(key, query, limit, pos, path, stickerOnly, contentFilter = "off", allowRetry = true)
     }
 
     private suspend fun requestPage(
@@ -66,15 +78,16 @@ class TenorClient(
         limit: Int,
         pos: String?,
         path: String,
+        stickerOnly: Boolean,
         contentFilter: String,
         allowRetry: Boolean,
     ): ApiResult<GifPage> {
-        val request = buildRequest(key, query, limit, pos, path, contentFilter)
+        val request = buildRequest(key, query, limit, pos, path, stickerOnly, contentFilter)
         return when (val response = perform(request)) {
             is Raw.Ok -> parse(response.body)
             is Raw.Http ->
                 if (allowRetry && response.code == 400 && response.body.mentionsContentFilter()) {
-                    requestPage(key, query, limit, pos, path, contentFilter = "medium", allowRetry = false)
+                    requestPage(key, query, limit, pos, path, stickerOnly, "medium", allowRetry = false)
                 } else {
                     ApiResult.HttpError(response.code, response.body.shortBody())
                 }
@@ -88,18 +101,21 @@ class TenorClient(
         limit: Int,
         pos: String?,
         path: String,
+        stickerOnly: Boolean,
         contentFilter: String,
     ): Request {
         val url = baseUrl.toHttpUrl().newBuilder()
             .addPathSegment(path)
             .addQueryParameter("key", key)
+            .addQueryParameter("client_key", CLIENT_KEY)
             .apply {
                 if (query != null) addQueryParameter("q", query)
                 if (!pos.isNullOrBlank()) addQueryParameter("pos", pos)
+                if (stickerOnly) addQueryParameter("searchfilter", "sticker")
             }
             .addQueryParameter("limit", limit.toString())
             .addQueryParameter("contentfilter", contentFilter)
-            .addQueryParameter("media_filter", MEDIA_FILTER)
+            .addQueryParameter("locale", "en_US")
             .build()
         return Request.Builder().url(url).get().build()
     }
@@ -116,7 +132,7 @@ class TenorClient(
     }
 
     private fun parse(body: String): ApiResult<GifPage> = try {
-        ApiResult.Ok(tenorJson.decodeFromString<TenorResponse>(body).toPage())
+        ApiResult.Ok(klipyJson.decodeFromString<KlipyResponse>(body).toPage())
     } catch (e: SerializationException) {
         ApiResult.ParseError(e.message ?: "malformed JSON")
     } catch (e: IllegalArgumentException) {
@@ -131,8 +147,8 @@ class TenorClient(
 }
 
 @Serializable
-private data class TenorResponse(
-    val results: List<TenorItem> = emptyList(),
+private data class KlipyResponse(
+    val results: List<KlipyItem> = emptyList(),
     val next: String? = null,
 ) {
     fun toPage(): GifPage = GifPage(
@@ -142,51 +158,50 @@ private data class TenorResponse(
 }
 
 @Serializable
-private data class TenorItem(
+private data class KlipyItem(
     val id: String = "",
     @SerialName("content_description") val contentDescription: String = "",
-    @SerialName("media_formats") val mediaFormats: TenorMediaFormats? = null,
+    val title: String = "",
+    @SerialName("media_formats") val mediaFormats: Map<String, KlipyMedia> = emptyMap(),
 ) {
     fun toResult(): GifResult? {
-        val formats = mediaFormats ?: return null
-        val preview = formats.gifpreview?.url.orNullIfBlank()
-            ?: formats.tinygif?.url.orNullIfBlank()
-            ?: return null
-        val gif = formats.gif?.url.orNullIfBlank() ?: return null
-        val mp4 = formats.mp4?.url.orNullIfBlank()
-            ?: formats.tinymp4?.url.orNullIfBlank()
-        val dims = formats.gif?.dims?.takeIf { it.size >= 2 }
-            ?: formats.gifpreview?.dims?.takeIf { it.size >= 2 }
-            ?: formats.mp4?.dims?.takeIf { it.size >= 2 }
+        if (mediaFormats.isEmpty()) return null
+        val preview = mediaFormats.firstOf(
+            "gifpreview", "tinygif", "nanogif",
+            "tinywebp_transparent", "tinygif_transparent", "tinywebp",
+            "webp_transparent", "webp", "png",
+            "gif", "tinygif",
+        ) ?: return null
+        val animated = mediaFormats.firstOf(
+            "mp4", "tinymp4",
+            "gif", "tinygif", "gif_transparent", "tinygif_transparent",
+            "webp_transparent", "webp", "png",
+        )
+        val playable = animated ?: preview
+        val dims = listOf(playable, animated, preview)
+            .firstNotNullOfOrNull { media -> media?.dims?.takeIf { it.size >= 2 } }
         return GifResult(
             id = id,
-            title = contentDescription,
-            previewUrl = preview,
-            gifUrl = gif,
-            mp4Url = mp4,
+            title = contentDescription.ifBlank { title },
+            previewUrl = preview.url,
+            gifUrl = playable.url,
+            mp4Url = mediaFormats.firstOf("mp4", "tinymp4")?.url,
             width = dims?.get(0) ?: 0,
             height = dims?.get(1) ?: 0,
-            source = GifSource.TENOR,
+            source = GifSource.KLIPY,
         )
     }
 }
 
 @Serializable
-private data class TenorMediaFormats(
-    val gifpreview: TenorMedia? = null,
-    val tinygif: TenorMedia? = null,
-    val gif: TenorMedia? = null,
-    val mp4: TenorMedia? = null,
-    val tinymp4: TenorMedia? = null,
-)
-
-@Serializable
-private data class TenorMedia(
+private data class KlipyMedia(
     val url: String = "",
     val dims: List<Int> = emptyList(),
 )
 
-private fun String?.orNullIfBlank(): String? = this?.trim()?.takeIf { it.isNotEmpty() }
+/** KLIPY's media_formats is an open dictionary, so look formats up by name. */
+private fun Map<String, KlipyMedia>.firstOf(vararg keys: String): KlipyMedia? =
+    keys.firstNotNullOfOrNull { key -> this[key]?.takeIf { it.url.isNotBlank() } }
 
 private fun String.mentionsContentFilter(): Boolean {
     val lower = lowercase()

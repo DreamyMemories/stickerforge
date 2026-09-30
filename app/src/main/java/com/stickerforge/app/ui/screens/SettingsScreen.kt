@@ -41,7 +41,7 @@ fun SettingsScreen(main: MainViewModel) {
     val keys = main.graph.apiKeys
 
     var giphyKey by remember { mutableStateOf("") }
-    var tenorKey by remember { mutableStateOf("") }
+    var klipyKey by remember { mutableStateOf("") }
     var publisher by remember { mutableStateOf("") }
     var loaded by remember { mutableStateOf(false) }
     var savedNotice by remember { mutableStateOf<String?>(null) }
@@ -49,7 +49,7 @@ fun SettingsScreen(main: MainViewModel) {
     LaunchedEffect(Unit) {
         if (!loaded) {
             giphyKey = keys.giphyKeyOnce()
-            tenorKey = keys.tenorKeyOnce()
+            klipyKey = keys.klipyKeyOnce()
             publisher = keys.publisherOnce().ifBlank { "StickerForge" }
             loaded = true
         }
@@ -101,28 +101,28 @@ fun SettingsScreen(main: MainViewModel) {
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Tenor", style = MaterialTheme.typography.titleSmall)
+                        Text("KLIPY", style = MaterialTheme.typography.titleSmall)
                         OutlinedTextField(
-                            value = tenorKey,
-                            onValueChange = { tenorKey = it },
-                            label = { Text("Tenor API key") },
+                            value = klipyKey,
+                            onValueChange = { klipyKey = it },
+                            label = { Text("KLIPY API key") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Text(
-                            "Tenor only returns unfiltered results when your key is provisioned for it. Otherwise the app falls back to the loosest filter your key allows.",
+                            "KLIPY is the drop-in Tenor replacement (Tenor's API shut down on 30 June 2026) and requests are unfiltered by default. Grab a key from the KLIPY partner panel.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = {
                                 scope.launch {
-                                    keys.setTenorKey(tenorKey)
-                                    savedNotice = "Tenor key saved"
+                                    keys.setKlipyKey(klipyKey)
+                                    savedNotice = "KLIPY key saved"
                                 }
                             }) { Text("Save") }
                             OutlinedButton(onClick = {
-                                openUrl(context, "https://developers.google.com/tenor/guides/quickstart")
+                                openUrl(context, "https://partner.klipy.com/api-keys")
                             }) { Text("Get a key") }
                         }
                     }

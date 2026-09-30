@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -9,6 +11,16 @@ android {
     namespace = "com.stickerforge.app"
     compileSdk = 35
 
+    // Optional personal-build API keys, kept out of git in local.properties:
+    //   GIPHY_API_KEY=...
+    //   KLIPY_API_KEY=...
+    val localProps = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+    val giphyKey = (localProps.getProperty("GIPHY_API_KEY") ?: "").trim()
+    val klipyKey = (localProps.getProperty("KLIPY_API_KEY") ?: "").trim()
+
     defaultConfig {
         applicationId = "com.stickerforge.app"
         minSdk = 28
@@ -19,6 +31,8 @@ android {
         val authority = "$applicationId.stickercontentprovider"
         manifestPlaceholders["contentProviderAuthority"] = authority
         buildConfigField("String", "CONTENT_PROVIDER_AUTHORITY", "\"$authority\"")
+        buildConfigField("String", "GIPHY_API_KEY", "\"$giphyKey\"")
+        buildConfigField("String", "KLIPY_API_KEY", "\"$klipyKey\"")
     }
 
     buildTypes {

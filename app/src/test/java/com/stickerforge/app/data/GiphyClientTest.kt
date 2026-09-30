@@ -70,7 +70,9 @@ class GiphyClientTest {
         assertEquals("0", request.requestUrl?.queryParameter("offset"))
         assertEquals("r", request.requestUrl?.queryParameter("rating"))
         assertEquals("en", request.requestUrl?.queryParameter("lang"))
-        assertEquals("messaging_non_clips", request.requestUrl?.queryParameter("bundle"))
+        // Giphy strips *_still variants when the bundle filter is used, so the
+        // client deliberately does not send it.
+        assertNull(request.requestUrl?.queryParameter("bundle"))
     }
 
     @Test
@@ -91,14 +93,23 @@ class GiphyClientTest {
     }
 
     @Test
-    fun `results without a usable preview are skipped`() = runTest {
+    fun `results without any usable media are skipped and animated urls fall back to previews`() = runTest {
         server.enqueue(jsonResponse(NO_PREVIEW_JSON))
 
         val result = client().search("cats", limit = 10, offset = 0)
 
         val page = (result as ApiResult.Ok<GifPage>).value
-        assertEquals(1, page.items.size)
-        assertEquals("kept", page.items[0].id)
+        assertEquals(3, page.items.size)
+        // No still variants at all (Giphy does this when a bundle filter is
+        // used): the animated URL becomes the grid preview.
+        assertEquals("no-still", page.items[0].id)
+        assertEquals("https://media.giphy.com/media/no-still/giphy.gif", page.items[0].previewUrl)
+        // A whitespace-only still URL is ignored.
+        assertEquals("blank-still", page.items[1].id)
+        assertEquals("https://media.giphy.com/media/blank-still/giphy.gif", page.items[1].previewUrl)
+        // A real still wins when present.
+        assertEquals("kept", page.items[2].id)
+        assertEquals("https://media.giphy.com/media/kept/100w_s.gif", page.items[2].previewUrl)
         assertNull(page.next)
     }
 
@@ -213,6 +224,11 @@ class GiphyClientTest {
             {
               "data": [
                 {
+                  "id": "dropped",
+                  "title": "no images at all",
+                  "images": {}
+                },
+                {
                   "id": "no-still",
                   "title": "no still GIF",
                   "images": {
@@ -250,7 +266,7 @@ class GiphyClientTest {
                   }
                 }
               ],
-              "pagination": { "total_count": 3, "count": 3, "offset": 0 }
+              "pagination": { "total_count": 4, "count": 4, "offset": 0 }
             }
         """.trimIndent()
     }

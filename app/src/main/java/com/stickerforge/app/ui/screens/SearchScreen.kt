@@ -64,6 +64,7 @@ class SearchViewModel(private val main: MainViewModel) : ViewModel() {
     data class State(
         val source: GifSource = GifSource.GIPHY,
         val query: String = "",
+        val stickerOnly: Boolean = false,
         val results: List<GifResult> = emptyList(),
         val loading: Boolean = false,
         val error: String? = null,
@@ -83,6 +84,12 @@ class SearchViewModel(private val main: MainViewModel) : ViewModel() {
 
     fun setQuery(query: String) = _state.update { it.copy(query = query) }
 
+    /** KLIPY's sticker mode returns transparent content - ideal for this app. */
+    fun setStickerOnly(enabled: Boolean) {
+        _state.update { it.copy(stickerOnly = enabled, results = emptyList(), next = null, error = null) }
+        load(reset = true)
+    }
+
     fun submit() = load(reset = true)
 
     fun loadMore() = load(reset = false)
@@ -99,9 +106,9 @@ class SearchViewModel(private val main: MainViewModel) : ViewModel() {
             _state.update { it.copy(loading = true, error = null, missingKey = false) }
             val cursor = if (reset) null else current.next
             val result = if (current.query.isBlank()) {
-                main.graph.gifSearch.trending(current.source, cursor)
+                main.graph.gifSearch.trending(current.source, cursor, stickerOnly = current.stickerOnly)
             } else {
-                main.graph.gifSearch.search(current.source, current.query, cursor)
+                main.graph.gifSearch.search(current.source, current.query, cursor, stickerOnly = current.stickerOnly)
             }
             when (result) {
                 is ApiResult.Ok -> _state.update {
@@ -195,21 +202,35 @@ fun SearchScreen(
                     label = { Text("Giphy") },
                 )
                 FilterChip(
-                    selected = state.source == GifSource.TENOR,
-                    onClick = { viewModel.setSource(GifSource.TENOR) },
-                    label = { Text("Tenor") },
+                    selected = state.source == GifSource.KLIPY,
+                    onClick = { viewModel.setSource(GifSource.KLIPY) },
+                    label = { Text("Klipy") },
                 )
+                if (state.source == GifSource.KLIPY) {
+                    FilterChip(
+                        selected = state.stickerOnly,
+                        onClick = { viewModel.setStickerOnly(!state.stickerOnly) },
+                        label = { Text("Stickers only") },
+                    )
+                }
             }
 
             OutlinedTextField(
                 value = state.query,
                 onValueChange = viewModel::setQuery,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search ${if (state.source == GifSource.GIPHY) "Giphy" else "Tenor"}") },
+                placeholder = { Text("Search ${if (state.source == GifSource.GIPHY) "Giphy" else "KLIPY"}") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { viewModel.submit() }),
+            )
+
+            Text(
+                text = "Powered by " + if (state.source == GifSource.GIPHY) "GIPHY" else "KLIPY",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
 
             when {
@@ -313,11 +334,15 @@ private fun MissingKeyCard(source: GifSource, onOpenSettings: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(16.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "No ${if (source == GifSource.GIPHY) "Giphy" else "Tenor"} API key yet",
+                "No ${if (source == GifSource.GIPHY) "Giphy" else "KLIPY"} API key yet",
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                "Add your free key in Settings and searching works immediately.",
+                if (source == GifSource.GIPHY) {
+                    "Add your free Giphy key in Settings and searching works immediately."
+                } else {
+                    "KLIPY replaced Tenor (Google shut it down in June 2026). Add a free KLIPY key from partner.klipy.com in Settings."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -1,13 +1,13 @@
 package com.stickerforge.app.data
 
 /** Where a search result came from. */
-enum class GifSource { GIPHY, TENOR }
+enum class GifSource { GIPHY, KLIPY }
 
 /**
  * Provider-agnostic search result.
  *
- * @param previewUrl still image used in grids (Giphy `*_still`, Tenor `gifpreview`)
- * @param gifUrl animated original
+ * @param previewUrl still image used in grids (Giphy `*_still`, Klipy `gifpreview`)
+ * @param gifUrl animated original - may be a GIF, WebP or MP4 depending on provider
  * @param mp4Url animated MP4 when the provider offers one; preferred for
  *        frame extraction because it decodes far faster than GIF
  */

@@ -12,9 +12,12 @@ and turn it into a real sticker pack WhatsApp can use.
 
 ## What it does
 
-- **Search Giphy and Tenor** from inside the app. Giphy requests `rating=r`, Tenor
-  requests `contentfilter=off` (and automatically retries with the loosest filter
-  your key allows if Tenor refuses). Keys are yours, stored on device only.
+- **Search Giphy and KLIPY** from inside the app. Giphy requests `rating=r`,
+  KLIPY requests its default `contentfilter=off`, and KLIPY's **Stickers only**
+  mode returns transparent stickers straight out of the box. Keys are yours,
+  stored on device only.
+  (Tenor used to be here — Google shut the Tenor API down on 30 June 2026,
+  which is why KLIPY, the drop-in successor, took its place.)
 - **Pick exactly what to remove.** Three tools on one canvas:
   - **Eraser brush** with adjustable size and a soft edge
   - **Restore brush** to paint transparency back
@@ -35,9 +38,9 @@ Pack rules are enforced before you add a pack to WhatsApp: 3–30 stickers,
 
 ## Screens
 
-| Search | Editor | Packs |
-| --- | --- | --- |
-| Giphy/Tenor tabs, still previews, tap to edit | brush / wand / AI cutout, undo-redo, frame scrubber | add to WhatsApp, export `.wastickers`, emoji tags |
+- **Search** (Giphy/KLIPY tabs, still previews, animated + still import)
+- **Editor** (checkerboard canvas, brush erase/restore, wand, AI cutout,
+  undo/redo, frame scrubber, emoji tags)
 
 ## Get it running
 
@@ -58,15 +61,17 @@ Open the project in Android Studio and hit Run, or use the commands above.
 The app has no keys baked in. Open **Settings** in the app and paste:
 
 1. **Giphy** – free key from [developers.giphy.com](https://developers.giphy.com/dashboard/?create=true)
-2. **Tenor** – free key from the [Google Cloud console](https://developers.google.com/tenor/guides/quickstart)
-   (enable the Tenor API, then create an API key)
+2. **KLIPY** – free key from the [KLIPY partner panel](https://partner.klipy.com/api-keys)
 
 Notes:
 
-- Giphy is asked for `rating=r`; Tenor is asked for `contentfilter=off`.
-- Tenor only serves unfiltered results to keys provisioned for it. If your key
-  is not, the app retries with `medium` and tells you.
-- Nothing is sent anywhere except the provider you are searching.
+- Giphy is asked for `rating=r`; KLIPY is asked for `contentfilter=off`, which
+  is its documented default.
+- KLIPY's **Stickers only** toggle adds `searchfilter=sticker`, returning
+  transparent stickers instead of GIFs.
+- Personal builds can pre-seed both keys instead of typing them: put
+  `GIPHY_API_KEY=...` and `KLIPY_API_KEY=...` in `local.properties` (gitignored)
+  and they are injected as `BuildConfig` fields. Settings still overrides them.
 
 ## Making a pack
 
@@ -114,6 +119,6 @@ MIT. Portions of the WhatsApp integration (`whatsapp/`) are adapted from the
 [official WhatsApp sticker sample](https://github.com/WhatsApp/stickers),
 BSD licensed, © Meta Platforms, Inc. See [`NOTICE.md`](NOTICE.md).
 
-Sticker search uses the official Giphy and Tenor APIs. Stickers you make with
-them are subject to those providers' terms and to WhatsApp's acceptable use
-policy — this is a personal tool, be decent with it.
+Sticker search uses the official Giphy and KLIPY APIs with keys supplied at
+runtime. Stickers you make with them are subject to those providers' terms and
+to WhatsApp's acceptable use policy — this is a personal tool, be decent with it.

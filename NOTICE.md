@@ -22,7 +22,10 @@ Subject segmentation is provided by ML Kit
 (`com.google.android.gms:play-services-mlkit-subject-segmentation`), used under
 the Google APIs terms of service.
 
-## Giphy / Tenor
+## Giphy / KLIPY
 
-Sticker search uses the official Giphy and Tenor HTTP APIs with API keys that
+Sticker search uses the official Giphy and KLIPY HTTP APIs with API keys that
 the user supplies at runtime. Keys are never bundled with the app.
+
+Tenor was replaced by KLIPY after Google discontinued the Tenor API on
+30 June 2026.
