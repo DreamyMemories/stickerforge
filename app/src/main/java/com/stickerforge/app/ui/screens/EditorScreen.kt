@@ -275,10 +275,26 @@ class EditorViewModel(
 
     fun save(packId: String, emojis: List<String>) {
         if (_state.value.saving) return
+        val animated = animatedSource && _state.value.exportAnimated
+        // Check compatibility before spending seconds encoding frames.
+        val pack = repository.getPack(packId)
+        if (pack == null) {
+            _state.update { it.copy(message = "That pack no longer exists.") }
+            return
+        }
+        if (!repository.canAdd(packId, animated)) {
+            _state.update {
+                it.copy(
+                    message = "A pack cannot mix static and animated stickers. " +
+                        "This pack already holds ${if (pack.animated) "animated" else "static"} stickers - " +
+                        "pick another pack or create a new one.",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _state.update { it.copy(saving = true, message = null) }
             try {
-                val animated = animatedSource && _state.value.exportAnimated
                 val bytes = withContext(Dispatchers.Default) {
                     if (animated) {
                         StickerExporter.exportAnimated(source.frames, source.durationsMs, mask)
@@ -287,7 +303,7 @@ class EditorViewModel(
                     }
                 }
                 val budget = if (animated) StickerExporter.ANIMATED_BUDGET_BYTES else StickerExporter.STATIC_BUDGET_BYTES
-                repository.addSticker(packId, bytes, emojis, animated)
+                withContext(Dispatchers.IO) { repository.addSticker(packId, bytes, emojis, animated) }
                 val warning = if (bytes.size > budget) {
                     "Saved, but ${bytes.size / 1024} KB is over the WhatsApp ${budget / 1024} KB limit."
                 } else {
@@ -572,6 +588,7 @@ fun EditorScreen(main: MainViewModel, onDone: () -> Unit) {
         SaveStickerDialog(
             main = main,
             emojis = emptyList(),
+            animatedExport = viewModel.animatedSource && state.exportAnimated,
             onDismiss = { showSaveDialog = false },
             onSave = { packId, emojis ->
                 showSaveDialog = false
@@ -603,12 +620,20 @@ private fun Checkerboard(modifier: Modifier = Modifier) {
 fun SaveStickerDialog(
     main: MainViewModel,
     emojis: List<String>,
+    animatedExport: Boolean,
     onDismiss: () -> Unit,
     onSave: (packId: String, emojis: List<String>) -> Unit,
 ) {
     val repository = main.graph.packRepository
     var packs by remember { mutableStateOf(repository.listPacks()) }
-    var selectedPack by remember { mutableStateOf(main.targetPackId ?: packs.firstOrNull()?.identifier) }
+    // A pack is all-static or all-animated, so only compatible packs are offered.
+    fun accepts(pack: StickerPack): Boolean = pack.stickers.isEmpty() || pack.animated == animatedExport
+    var selectedPack by remember {
+        mutableStateOf(
+            main.targetPackId?.takeIf { id -> packs.any { it.identifier == id && accepts(it) } }
+                ?: packs.firstOrNull { accepts(it) }?.identifier,
+        )
+    }
     var selectedEmojis by remember { mutableStateOf(emojis.ifEmpty { listOf("\uD83D\uDE00") }) }
     var newPackName by remember { mutableStateOf("") }
     var publisher by remember { mutableStateOf("StickerForge") }
@@ -629,17 +654,35 @@ fun SaveStickerDialog(
                     Text("No packs yet — create one below.")
                 }
                 packs.forEach { pack: StickerPack ->
+                    val compatible = accepts(pack)
                     FilterChip(
                         selected = selectedPack == pack.identifier,
-                        onClick = { selectedPack = pack.identifier },
-                        label = { Text("${pack.name} (${pack.stickerCount})") },
+                        onClick = { if (compatible) selectedPack = pack.identifier },
+                        enabled = compatible,
+                        label = {
+                            Text(
+                                "${pack.name} (${pack.stickerCount})" + when {
+                                    compatible -> ""
+                                    pack.animated -> " · animated only"
+                                    else -> " · static only"
+                                },
+                            )
+                        },
+                    )
+                }
+                if (packs.isNotEmpty() && selectedPack == null) {
+                    Text(
+                        "None of these packs can take a ${if (animatedExport) "animated" else "static"} " +
+                            "sticker — create a new pack below.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = newPackName,
                         onValueChange = { newPackName = it },
-                        label = { Text("New pack name") },
+                        label = { Text(if (animatedExport) "New animated pack" else "New pack name") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )

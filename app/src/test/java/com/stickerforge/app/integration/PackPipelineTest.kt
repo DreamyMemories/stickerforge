@@ -58,6 +58,14 @@ class PackPipelineTest {
         return StickerExporter.exportStatic(squareFrame(), mask)
     }
 
+    /** A genuinely animated sticker, muxed by the app's own exporter. */
+    private fun animatedWebpStickerBytes(): ByteArray {
+        val mask = EditMask(512, 512)
+        mask.eraseCircle(0f, 0f, 260f, 1f)
+        val frames = List(3) { squareFrame() }
+        return StickerExporter.exportAnimated(frames, List(3) { 100 }, mask)
+    }
+
     private fun newPackWithSticker(name: String): Pair<StickerPack, String> {
         val pack = repository.createPack(name)
         val bytes = webpStickerBytes()
@@ -139,6 +147,37 @@ class PackPipelineTest {
         assertNotEquals("importing must not clobber the original", pack.identifier, restored.identifier)
         assertEquals(1, restored.stickers.size)
         assertNotNull(repository.stickerBytes(restored.identifier, restored.stickers.first().fileName))
+    }
+
+    @Test
+    fun `an animated pack keeps its animated flag as stickers are added`() {
+        val pack = repository.createPack("Animated Flag Pack")
+        repeat(3) {
+            repository.addSticker(pack.identifier, animatedWebpStickerBytes(), listOf("\uD83D\uDE00"), animated = true)
+        }
+        val updated = repository.getPack(pack.identifier)!!
+
+        assertEquals(3, updated.stickers.size)
+        assertTrue("the pack flag must survive later adds", updated.animated)
+        // the validator derives animatedness from the files, so it must agree
+        StickerPackValidator.validate(
+            pack = updated,
+            readSticker = { repository.stickerBytes(updated.identifier, it.fileName) ?: ByteArray(0) },
+            readTray = { repository.ensureTray(updated.identifier) ?: ByteArray(0) },
+        )
+    }
+
+    @Test
+    fun `storing into a pack cannot mix static and animated stickers`() {
+        val pack = repository.createPack("Mixed Pack")
+        repository.addSticker(pack.identifier, animatedWebpStickerBytes(), listOf("\uD83D\uDE00"), animated = true)
+
+        val failure = runCatching {
+            repository.addSticker(pack.identifier, webpStickerBytes(), listOf("\uD83D\uDE00"), animated = false)
+        }.exceptionOrNull()
+
+        assertNotNull("mixing must be rejected", failure)
+        assertEquals(1, repository.getPack(pack.identifier)!!.stickers.size)
     }
 
     // ----------------------------------------------------------- the provider

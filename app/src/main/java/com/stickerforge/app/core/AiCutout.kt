@@ -46,7 +46,16 @@ class AiCutout {
             buffer.get(confidence, 0, available)
             Result.Ok(confidence, bitmap.width, bitmap.height)
         } catch (error: Exception) {
-            Result.Failed(error.message ?: "Subject segmentation failed")
+            val message = error.message.orEmpty()
+            Result.Failed(
+                when {
+                    message.contains("optional module", ignoreCase = true) ||
+                        message.contains("downloaded", ignoreCase = true) ->
+                        "The segmentation model is still downloading. Give it a minute, then tap AI cutout again."
+                    message.isBlank() -> "Subject segmentation failed"
+                    else -> message
+                },
+            )
         }
     }
 

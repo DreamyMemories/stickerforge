@@ -108,8 +108,15 @@ fun AppNav(main: MainViewModel, sharedUri: Uri?, onSharedConsumed: () -> Unit) {
                 }
                 composable(ROUTE_EDITOR) {
                     EditorScreen(main) {
-                        main.pendingSource = null
-                        navController.popBackStack(ROUTE_PACKS, inclusive = false)
+                        main.clearPending()
+                        // Land on Packs after saving, even when the editor was
+                        // opened from Search and Packs is not in the back stack.
+                        if (!navController.popBackStack(ROUTE_PACKS, inclusive = false)) {
+                            navController.navigate(ROUTE_PACKS) {
+                                popUpTo(ROUTE_SEARCH) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
                     }
                 }
             }

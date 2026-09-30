@@ -98,7 +98,10 @@ class PackRepository(context: Context) {
         )
         updatePack(identifier) { current ->
             current.copy(
-                animated = current.stickers.isEmpty() && animated,
+                // The flag describes the pack's first sticker and must survive
+                // every later add; clearing it here would make an animated pack
+                // look static and reject the next sticker.
+                animated = if (current.stickers.isEmpty()) animated else current.animated,
                 stickers = current.stickers + sticker,
                 imageDataVersion = bumpVersion(current.imageDataVersion),
             )
@@ -240,7 +243,19 @@ class PackRepository(context: Context) {
     }
 
     private fun readIndex(): PackIndex = try {
-        if (indexFile.isFile) json.decodeFromString(PackIndex.serializer(), indexFile.readText()) else PackIndex()
+        if (indexFile.isFile) {
+            val stored = json.decodeFromString(PackIndex.serializer(), indexFile.readText())
+            // Repair the pack flag if it ever disagrees with the stickers it
+            // holds (older builds cleared it on every add after the first).
+            PackIndex(
+                stored.packs.map { pack ->
+                    val derived = pack.stickers.isNotEmpty() && pack.stickers.all { it.animated }
+                    if (pack.animated == derived) pack else pack.copy(animated = derived)
+                },
+            )
+        } else {
+            PackIndex()
+        }
     } catch (error: Exception) {
         PackIndex()
     }
