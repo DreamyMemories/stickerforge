@@ -74,6 +74,7 @@ import com.stickerforge.app.model.StickerPack
 import com.stickerforge.app.ui.EMOJI_PRESETS
 import com.stickerforge.app.ui.MainViewModel
 import kotlin.math.hypot
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,7 +104,7 @@ class EditorViewModel(
         val tool: EditorTool = EditorTool.ERASE,
         val brushFraction: Float = 0.09f,
         val tolerance: Int = 40,
-        val exportAnimated: Boolean = initialAnimatedExport,
+        val exportAnimated: Boolean = true,
         val busy: Boolean = false,
         val saving: Boolean = false,
         val finished: Boolean = false,
@@ -113,7 +114,7 @@ class EditorViewModel(
         val message: String? = null,
     )
 
-    private val _state = MutableStateFlow(State())
+    private val _state = MutableStateFlow(State(exportAnimated = initialAnimatedExport))
     val state = _state.asStateFlow()
 
     private var lastPoint: Offset? = null
@@ -414,6 +415,8 @@ fun EditorScreen(main: MainViewModel, onDone: () -> Unit) {
                     .aspectRatio(1f)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
+                val frameImage = remember(state.frameIndex) { source.frames[state.frameIndex].asImageBitmap() }
+                val maskImage = remember(state.maskVersion) { viewModel.maskBitmap.asImageBitmap() }
                 Checkerboard(Modifier.matchParentSize())
                 Canvas(
                     Modifier
@@ -451,15 +454,14 @@ fun EditorScreen(main: MainViewModel, onDone: () -> Unit) {
                                 }
                             }
                         },
-                ) {
-                    val frameImage = remember(state.frameIndex) { source.frames[state.frameIndex].asImageBitmap() }
-                    val maskImage = remember(state.maskVersion) { viewModel.maskBitmap.asImageBitmap() }
-                    val factor = size.width / frameImage.width
-                    scale(factor, factor, pivot = Offset.Zero) {
-                        drawImage(frameImage)
-                        drawImage(maskImage, blendMode = BlendMode.DstIn)
-                    }
-                }
+                    onDraw = {
+                        val factor = size.width / frameImage.width
+                        scale(factor, factor, pivot = Offset.Zero) {
+                            drawImage(frameImage)
+                            drawImage(maskImage, blendMode = BlendMode.DstIn)
+                        }
+                    },
+                )
                 if (state.busy) {
                     CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }

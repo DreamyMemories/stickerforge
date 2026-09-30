@@ -84,7 +84,7 @@ object Frames {
         val header = GifHeaderParser().setData(bytes).parseHeader()
         if (header.numFrames <= 1) return fromStill(bytes)
 
-        val decoder = StandardGifDecoder(bitmapProvider, 1)
+        val decoder = StandardGifDecoder(bitmapProvider)
         decoder.setData(header, bytes)
         val frames = ArrayList<Bitmap>()
         val durations = ArrayList<Int>()

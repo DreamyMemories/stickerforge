@@ -64,12 +64,12 @@ class TenorClientTest {
 
         val request = server.takeRequest()
         assertEquals("/search", request.path?.substringBefore('?'))
-        assertEquals("dogs", request.url?.queryParameter("q"))
-        assertEquals("test-tenor-key", request.url?.queryParameter("key"))
-        assertEquals("12", request.url?.queryParameter("limit"))
-        assertEquals("CURSOR123", request.url?.queryParameter("pos"))
-        assertEquals("off", request.url?.queryParameter("contentfilter"))
-        assertEquals("gifpreview,tinygif,gif,mp4,tinymp4", request.url?.queryParameter("media_filter"))
+        assertEquals("dogs", request.requestUrl?.queryParameter("q"))
+        assertEquals("test-tenor-key", request.requestUrl?.queryParameter("key"))
+        assertEquals("12", request.requestUrl?.queryParameter("limit"))
+        assertEquals("CURSOR123", request.requestUrl?.queryParameter("pos"))
+        assertEquals("off", request.requestUrl?.queryParameter("contentfilter"))
+        assertEquals("gifpreview,tinygif,gif,mp4,tinymp4", request.requestUrl?.queryParameter("media_filter"))
     }
 
     @Test
@@ -85,10 +85,10 @@ class TenorClientTest {
 
         val request = server.takeRequest()
         assertEquals("/featured", request.path?.substringBefore('?'))
-        assertNull(request.url?.queryParameter("q"))
-        assertNull(request.url?.queryParameter("pos"))
-        assertEquals("20", request.url?.queryParameter("limit"))
-        assertEquals("off", request.url?.queryParameter("contentfilter"))
+        assertNull(request.requestUrl?.queryParameter("q"))
+        assertNull(request.requestUrl?.queryParameter("pos"))
+        assertEquals("20", request.requestUrl?.queryParameter("limit"))
+        assertEquals("off", request.requestUrl?.queryParameter("contentfilter"))
     }
 
     @Test
@@ -115,13 +115,13 @@ class TenorClientTest {
         assertEquals(2, server.requestCount)
 
         val first = server.takeRequest()
-        assertEquals("off", first.url?.queryParameter("contentfilter"))
+        assertEquals("off", first.requestUrl?.queryParameter("contentfilter"))
         val second = server.takeRequest()
-        assertEquals("medium", second.url?.queryParameter("contentfilter"))
-        assertEquals("dogs", second.url?.queryParameter("q"))
-        assertEquals("CURSOR123", second.url?.queryParameter("pos"))
-        assertEquals("test-tenor-key", second.url?.queryParameter("key"))
-        assertEquals("12", second.url?.queryParameter("limit"))
+        assertEquals("medium", second.requestUrl?.queryParameter("contentfilter"))
+        assertEquals("dogs", second.requestUrl?.queryParameter("q"))
+        assertEquals("CURSOR123", second.requestUrl?.queryParameter("pos"))
+        assertEquals("test-tenor-key", second.requestUrl?.queryParameter("key"))
+        assertEquals("12", second.requestUrl?.queryParameter("limit"))
     }
 
     @Test

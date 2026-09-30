@@ -69,7 +69,7 @@ data class WebpInfo(
                         if (size < 16) throw IllegalArgumentException("Malformed ANMF chunk")
                         animationSignal = true
                         frameDurations += readUInt24LE(bytes, payloadStart + 12)
-                        if (anmfHasAlpha(bytes, payloadStart + 16, payloadEnd)) hasAlpha = true
+                        if (anmfHasAlpha(bytes, payloadStart + 16, payloadEnd.toInt())) hasAlpha = true
                     }
                     "ALPH" -> hasAlpha = true
                     "VP8 " -> {

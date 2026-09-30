@@ -208,7 +208,7 @@ fun PacksScreen(main: MainViewModel, onOpenEditor: () -> Unit, onGoSearch: () ->
 
 @Composable
 private fun PackRow(pack: StickerPack, trayFile: File?, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), onClick = onClick) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,

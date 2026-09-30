@@ -64,13 +64,13 @@ class GiphyClientTest {
 
         val request = server.takeRequest()
         assertEquals("/search", request.path?.substringBefore('?'))
-        assertEquals("excited dog", request.url?.queryParameter("q"))
-        assertEquals("test-giphy-key", request.url?.queryParameter("api_key"))
-        assertEquals("10", request.url?.queryParameter("limit"))
-        assertEquals("0", request.url?.queryParameter("offset"))
-        assertEquals("r", request.url?.queryParameter("rating"))
-        assertEquals("en", request.url?.queryParameter("lang"))
-        assertEquals("messaging_non_clips", request.url?.queryParameter("bundle"))
+        assertEquals("excited dog", request.requestUrl?.queryParameter("q"))
+        assertEquals("test-giphy-key", request.requestUrl?.queryParameter("api_key"))
+        assertEquals("10", request.requestUrl?.queryParameter("limit"))
+        assertEquals("0", request.requestUrl?.queryParameter("offset"))
+        assertEquals("r", request.requestUrl?.queryParameter("rating"))
+        assertEquals("en", request.requestUrl?.queryParameter("lang"))
+        assertEquals("messaging_non_clips", request.requestUrl?.queryParameter("bundle"))
     }
 
     @Test
@@ -85,9 +85,9 @@ class GiphyClientTest {
 
         val request = server.takeRequest()
         assertEquals("/trending", request.path?.substringBefore('?'))
-        assertNull(request.url?.queryParameter("q"))
-        assertEquals("5", request.url?.queryParameter("limit"))
-        assertEquals("0", request.url?.queryParameter("offset"))
+        assertNull(request.requestUrl?.queryParameter("q"))
+        assertEquals("5", request.requestUrl?.queryParameter("limit"))
+        assertEquals("0", request.requestUrl?.queryParameter("offset"))
     }
 
     @Test

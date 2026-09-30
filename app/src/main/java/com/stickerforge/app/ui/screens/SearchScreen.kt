@@ -50,6 +50,7 @@ import com.stickerforge.app.data.GifResult
 import com.stickerforge.app.data.GifSource
 import com.stickerforge.app.data.ApiResult
 import com.stickerforge.app.ui.MainViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
