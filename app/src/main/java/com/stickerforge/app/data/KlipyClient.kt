@@ -84,7 +84,7 @@ class KlipyClient(
     ): ApiResult<GifPage> {
         val request = buildRequest(key, query, limit, pos, path, stickerOnly, contentFilter)
         return when (val response = perform(request)) {
-            is Raw.Ok -> parse(response.body)
+            is Raw.Ok -> parse(response.body, stickerOnly)
             is Raw.Http ->
                 if (allowRetry && response.code == 400 && response.body.mentionsContentFilter()) {
                     requestPage(key, query, limit, pos, path, stickerOnly, "medium", allowRetry = false)
@@ -131,8 +131,8 @@ class KlipyClient(
         Raw.Network(e.message ?: e.javaClass.simpleName)
     }
 
-    private fun parse(body: String): ApiResult<GifPage> = try {
-        ApiResult.Ok(klipyJson.decodeFromString<KlipyResponse>(body).toPage())
+    private fun parse(body: String, stickerOnly: Boolean): ApiResult<GifPage> = try {
+        ApiResult.Ok(klipyJson.decodeFromString<KlipyResponse>(body).toPage(stickerOnly))
     } catch (e: SerializationException) {
         ApiResult.ParseError(e.message ?: "malformed JSON")
     } catch (e: IllegalArgumentException) {
@@ -151,8 +151,8 @@ private data class KlipyResponse(
     val results: List<KlipyItem> = emptyList(),
     val next: String? = null,
 ) {
-    fun toPage(): GifPage = GifPage(
-        items = results.mapNotNull { it.toResult() },
+    fun toPage(stickerOnly: Boolean): GifPage = GifPage(
+        items = results.mapNotNull { it.toResult(stickerOnly) },
         next = next?.trim().takeUnless { it.isNullOrEmpty() },
     )
 }
@@ -164,19 +164,31 @@ private data class KlipyItem(
     val title: String = "",
     @SerialName("media_formats") val mediaFormats: Map<String, KlipyMedia> = emptyMap(),
 ) {
-    fun toResult(): GifResult? {
+    fun toResult(stickerOnly: Boolean): GifResult? {
         if (mediaFormats.isEmpty()) return null
         val preview = mediaFormats.firstOf(
             "gifpreview", "tinygif", "nanogif",
+            "webppreview_transparent", "tinywebppreview_transparent",
             "tinywebp_transparent", "tinygif_transparent", "tinywebp",
             "webp_transparent", "webp", "png",
             "gif", "tinygif",
         ) ?: return null
-        val animated = mediaFormats.firstOf(
-            "mp4", "tinymp4",
-            "gif", "tinygif", "gif_transparent", "tinygif_transparent",
-            "webp_transparent", "webp", "png",
-        )
+        // Sticker mode exists to deliver transparency, so transparent formats
+        // win there even though mp4 is normally the cheapest to decode.
+        val animated = if (stickerOnly) {
+            mediaFormats.firstOf(
+                "gif_transparent", "tinygif_transparent",
+                "webp_transparent", "tinywebp_transparent",
+                "gif", "tinygif",
+                "mp4", "tinymp4", "webp",
+            )
+        } else {
+            mediaFormats.firstOf(
+                "mp4", "tinymp4",
+                "gif", "tinygif", "gif_transparent", "tinygif_transparent",
+                "webp_transparent", "webp", "png",
+            )
+        }
         val playable = animated ?: preview
         val dims = listOf(playable, animated, preview)
             .firstNotNullOfOrNull { media -> media?.dims?.takeIf { it.size >= 2 } }
