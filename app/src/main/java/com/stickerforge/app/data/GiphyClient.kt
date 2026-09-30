@@ -153,6 +153,7 @@ private data class GiphyItem(
             id = id,
             title = title,
             previewUrl = preview,
+            animatedPreviewUrl = images.fixedWidthSmall?.url?.trim().takeUnless { it.isNullOrEmpty() },
             gifUrl = gif,
             mp4Url = original.mp4?.trim().takeUnless { it.isNullOrEmpty() },
             width = original.width,

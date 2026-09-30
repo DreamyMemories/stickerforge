@@ -264,7 +264,7 @@ fun SearchScreen(
                                     .height(110.dp),
                             ) {
                                 AsyncImage(
-                                    model = result.previewUrl,
+                                    model = result.animatedPreviewUrl ?: result.previewUrl,
                                     contentDescription = result.title,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
@@ -299,7 +299,7 @@ fun SearchScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 AsyncImage(
-                    model = result.previewUrl,
+                    model = result.animatedPreviewUrl ?: result.previewUrl,
                     contentDescription = result.title,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxWidth().height(220.dp),

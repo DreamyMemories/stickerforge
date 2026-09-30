@@ -54,6 +54,8 @@ class KlipyClientTest {
         // content_description is empty in KLIPY responses; title carries the text
         assertEquals("Greetings: Man Waving Hello", first.title)
         assertEquals("https://static.klipy.com/preview.jpg", first.previewUrl)
+        // small animated rendition drives the search grid
+        assertEquals("https://static.klipy.com/tiny.gif", first.animatedPreviewUrl)
         assertEquals("https://static.klipy.com/clip.mp4", first.mp4Url)
         assertEquals(640, first.width)
         assertEquals(640, first.height)

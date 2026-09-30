@@ -196,6 +196,7 @@ private data class KlipyItem(
             id = id,
             title = contentDescription.ifBlank { title },
             previewUrl = preview.url,
+            animatedPreviewUrl = mediaFormats.firstOf("tinygif", "nanogif", "tinygif_transparent", "nanogif_transparent")?.url,
             gifUrl = playable.url,
             mp4Url = mediaFormats.firstOf("mp4", "tinymp4")?.url,
             width = dims?.get(0) ?: 0,

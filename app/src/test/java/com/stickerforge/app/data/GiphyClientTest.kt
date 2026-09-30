@@ -54,6 +54,8 @@ class GiphyClientTest {
         assertEquals(480, first.width)
         assertEquals(270, first.height)
         assertEquals(GifSource.GIPHY, first.source)
+        // small animated rendition drives the search grid
+        assertEquals("https://media.giphy.com/media/l0HlvtIPzPdt2usKs/100w.gif", first.animatedPreviewUrl)
 
         // Second item has numeric dimensions and no mp4 in a realistic payload.
         val second = page.items[1]

@@ -101,6 +101,10 @@ Interesting bits:
 - **Animated WebP on Android.** Android can only *encode still* WebP frames, so
   `core/webp/WebpMuxer.kt` muxes frames into the animated container itself
   (VP8X/ANIM/ANMF), and `WebpInfo` parses it back for validation.
+- **Animated previews.** Coil's default loader renders only the first frame, so
+  `StickerForgeApp` installs an `ImageLoader` with the `coil-gif` decoders and
+  the grid uses each provider's small animated rendition (Giphy
+  `fixed_width_small`, KLIPY `tinygif`).
 - **Mask-first editing.** The cutout is a single `ByteArray` alpha mask applied
   to every frame, which is what makes animated cutouts affordable.
 - **Size budgets.** Export quality-searches until the sticker fits WhatsApp's
